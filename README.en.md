@@ -4,6 +4,11 @@ Connect your local SSH client to an ephemeral Work sandbox through a
 self-hosted Cloudflare Worker. Both endpoints make outbound WebSocket
 connections; no public inbound port is required.
 
+Some ChatGPT Work sandboxes cannot reach `workers.dev` through their egress
+proxy. In that case, deploy the optional
+[ChatGPT Site ingress](docs/SITE_INGRESS.md). The local client still connects
+directly to your Worker; only the sandbox agent uses the Site URL.
+
 This is an unofficial community project and is not affiliated with OpenAI,
 ChatGPT, or Cloudflare. Use it only with systems you own or are authorized to
 administer.
@@ -33,6 +38,9 @@ Requirements: a Cloudflare account, Node.js 22+, `git`, `ssh`, and
    ./scripts/install-agent.sh
    ./scripts/start-agent.sh
    ```
+
+   If `WORKSSH_WORKER_URL` is a workspace-protected Site ingress, also set
+   `WORKSSH_SITE_BEARER_TOKEN`. Keep it private.
 
 3. On macOS or Linux, clone the repository, set the first three variables to
    the same values, then run:

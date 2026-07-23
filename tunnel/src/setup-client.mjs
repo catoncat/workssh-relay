@@ -12,6 +12,9 @@ const configPath = writePrivateJson(
     workerUrl: process.env.WORKSSH_WORKER_URL,
     relayToken: process.env.WORKSSH_RELAY_TOKEN,
     tunnelId: process.env.WORKSSH_TUNNEL_ID,
+    ...(process.env.WORKSSH_SITE_BEARER_TOKEN
+      ? { siteBearerToken: process.env.WORKSSH_SITE_BEARER_TOKEN }
+      : {}),
   }),
 );
 const identityFile = path.resolve(

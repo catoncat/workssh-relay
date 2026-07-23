@@ -37,6 +37,15 @@ export function validateCommon(config) {
   if (!TUNNEL_RE.test(normalized.tunnelId ?? "")) {
     throw new Error("tunnelId must contain 16-128 URL-safe characters");
   }
+  if (
+    normalized.siteBearerToken !== undefined
+    && (
+      typeof normalized.siteBearerToken !== "string"
+      || normalized.siteBearerToken.length < 32
+    )
+  ) {
+    throw new Error("siteBearerToken must contain at least 32 characters when set");
+  }
   return normalized;
 }
 

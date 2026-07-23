@@ -16,6 +16,9 @@ const common = validateCommon({
   workerUrl: process.env.WORKSSH_WORKER_URL,
   relayToken: process.env.WORKSSH_RELAY_TOKEN,
   tunnelId: process.env.WORKSSH_TUNNEL_ID,
+  ...(process.env.WORKSSH_SITE_BEARER_TOKEN
+    ? { siteBearerToken: process.env.WORKSSH_SITE_BEARER_TOKEN }
+    : {}),
 });
 fs.mkdirSync(stateDirectory, { recursive: true, mode: 0o700 });
 fs.chmodSync(stateDirectory, 0o700);

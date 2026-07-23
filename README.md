@@ -10,12 +10,15 @@ WebSocket 的临时 Work 沙盒。
 
 很多托管沙盒没有公网入站端口，但可以发起 HTTPS/WebSocket 出站连接。WorkSSH
 让沙盒端和本地端都主动连接到你自己的 Worker；Worker 只转发已经由 SSH 加密的
-字节流。
+字节流。部分 ChatGPT Work 环境还会阻止直接访问 `workers.dev`，这种情况下需要
+增加一个工作区 Site 入口。
 
 ```mermaid
 flowchart LR
   M["你的电脑<br/>ssh"] -->|WSS 出站| R["你的 Cloudflare Worker<br/>Durable Object"]
-  S["临时 Work 沙盒<br/>127.0.0.1:2222"] -->|WSS 出站| R
+  S["临时 Work 沙盒<br/>127.0.0.1:2222"] -->|可直达时 WSS| R
+  S -->|受限环境| I["ChatGPT Site 入口"]
+  I -->|WSS 转发| R
 ```
 
 ## 安全默认值
@@ -50,6 +53,10 @@ npm run deploy
 curl https://YOUR_WORKER_URL/health
 ```
 
+如果 Work 沙盒访问这个 URL 超时，但你的本地电脑可以访问，请先部署
+[Site 入口](docs/SITE_INGRESS.md)。本地电脑仍直连 Worker，只有沙盒 Agent 使用
+Site URL。
+
 ### 2. 让 Work Agent 安装沙盒端
 
 在 Work 对话里附上你的 SSH **公钥**，再把 [AGENT_TASK.md](AGENT_TASK.md) 的
@@ -64,6 +71,8 @@ export WORKSSH_WORKER_URL="https://YOUR_WORKER_URL"
 export WORKSSH_RELAY_TOKEN="YOUR_RELAY_TOKEN"
 export WORKSSH_TUNNEL_ID="$(openssl rand -hex 16)"
 export WORKSSH_PUBLIC_KEY_FILE="/path/to/id_ed25519.pub"
+# 仅当上面的 URL 是受工作区保护的 chatgpt.site 入口时：
+# export WORKSSH_SITE_BEARER_TOKEN="YOUR_SITE_BYPASS_BEARER"
 ./scripts/install-agent.sh
 ./scripts/start-agent.sh
 ```

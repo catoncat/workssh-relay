@@ -47,3 +47,15 @@ important files from persistent storage or Git.
 
 The Node clients honor `HTTPS_PROXY`, `HTTP_PROXY`, and `ALL_PROXY`. Set one of
 those variables before starting the agent or SSH client.
+
+If the local client reaches the Worker but the sandbox reports `connecting`,
+test `/health` from both environments. A proxy CONNECT timeout to
+`workers.dev` requires the optional [Site ingress](SITE_INGRESS.md); changing
+the tunnel ID or relay token will not fix an egress policy block.
+
+With a Site ingress, confirm:
+
+- the local client uses the Cloudflare Worker URL;
+- the sandbox Agent uses the Site URL;
+- both use the same relay token and tunnel ID;
+- a workspace-protected Site bearer is configured only on the Agent.

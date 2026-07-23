@@ -19,10 +19,12 @@ function proxyAgent() {
   return new HttpsProxyAgent(value);
 }
 
-export function openRelay({ workerUrl, relayToken, tunnelId, role }) {
+export function openRelay({ workerUrl, relayToken, siteBearerToken, tunnelId, role }) {
   return new Promise((resolve, reject) => {
+    const headers = { "x-relay-token": relayToken };
+    if (siteBearerToken) headers.authorization = `Bearer ${siteBearerToken}`;
     const socket = new WebSocket(websocketUrl(workerUrl, tunnelId, role), {
-      headers: { "x-relay-token": relayToken },
+      headers,
       agent: proxyAgent(),
       handshakeTimeout: 20_000,
       maxPayload: 1_500_000,

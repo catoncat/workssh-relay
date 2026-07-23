@@ -12,11 +12,17 @@
    frames to stdin/stdout for OpenSSH.
 5. **Loopback SSH server** authenticates the configured public key and starts a
    login shell or command.
+6. **Optional Site ingress** handles the special case where a Work sandbox's
+   egress proxy cannot reach `workers.dev`. It authenticates the request and
+   forwards the WebSocket upgrade to the owner's Relay Worker. It does not
+   terminate SSH or persist payloads.
 
 ## Protocol v1
 
 The URL is `/connect?tunnel=<opaque-id>&role=agent|client`. Authentication uses
-the `x-relay-token` request header.
+the `x-relay-token` request header. A workspace-protected Site ingress
+additionally requires `Authorization: Bearer <site-bypass-token>` between the
+sandbox Agent and the Site. That bearer is not sent to the upstream Worker.
 
 Relay control messages are JSON text:
 
