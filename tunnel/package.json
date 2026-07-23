@@ -1,0 +1,17 @@
+{
+  "name": "@workssh/tunnel",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "https-proxy-agent": "9.1.0",
+    "ssh2": "1.17.0",
+    "ws": "8.21.1"
+  }
+}

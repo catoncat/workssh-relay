@@ -1,0 +1,27 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            relay/package-lock.json
+            tunnel/package-lock.json
+      - run: npm ci --prefix tunnel
+      - run: npm ci --prefix relay
+      - run: npm run check
+      - run: ./scripts/e2e-local.sh
+      - run: node scripts/e2e-relay.cjs
+      - run: npm run secret-scan

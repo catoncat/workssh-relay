@@ -1,0 +1,15 @@
+{
+  "name": "workssh-relay",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Self-hosted SSH relay for ephemeral Work sandboxes",
+  "scripts": {
+    "install:all": "npm --prefix relay install && npm --prefix tunnel install",
+    "check": "npm --prefix tunnel test && npm --prefix relay run check",
+    "secret-scan": "bash scripts/secret-scan.sh"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "license": "Apache-2.0"
+}

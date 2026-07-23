@@ -1,0 +1,16 @@
+node_modules/
+dist/
+.wrangler/
+coverage/
+*.log
+*.pid
+.DS_Store
+.env
+.env.*
+!.env.example
+runtime-config.json
+config.json
+host_key
+host_key.pub
+*.tgz
+*.zip
