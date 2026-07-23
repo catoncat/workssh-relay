@@ -14,6 +14,8 @@ Inputs:
 - Cloudflare Worker URL: `<WORKER_URL>`
 - Optional ChatGPT Site ingress URL: `<SITE_INGRESS_URL>` (blank unless direct
   access to the Worker times out)
+- Optional Site bypass bearer: `<SITE_BYPASS_BEARER>` (blank for a public Site
+  or when the Agent will create the Site)
 - Relay token: `<RELAY_TOKEN>`
 - Tunnel ID: `<TUNNEL_ID>` (generate a random 128-bit value if blank)
 - Allowed SSH public key: `<SSH_PUBLIC_KEY>`
@@ -25,16 +27,21 @@ Complete the work without asking me to run sandbox-side commands:
 2. Verify the repository contains no real credentials and that the supplied
    URL is HTTPS.
 3. Test the Worker `/health` endpoint from the sandbox. If it is reachable,
-   install the Agent with the Worker URL. If the platform proxy times out and a
-   Site ingress URL was supplied, use that URL and its Site bypass bearer.
+   install the Agent with the Worker URL. If the platform proxy times out:
+   - use the supplied Site ingress and bypass bearer; or
+   - when no ingress was supplied and the Sites capability is available,
+     deploy `site-ingress/worker.js`, set `UPSTREAM_RELAY_URL` and the matching
+     secret `RELAY_TOKEN`, retrieve the Site bypass bearer, and use that Site
+     URL for the sandbox Agent with `WORKSSH_TRANSPORT=http-poll`.
    Store both runtime secrets only in configuration mode `0600`; never print
-   the bearer.
+   the bearer, Site project ID, or hosted environment values.
 4. Bind the SSH server only to `127.0.0.1`, use public-key authentication only,
    and do not enable TCP, dynamic, reverse, or agent forwarding.
 5. Start the supervisor, verify both children are running, and confirm the
-   outbound WebSocket is connected.
+   outbound WebSocket or Site HTTP polling transport is connected.
 6. Run the local protocol tests and report the exact local SSH alias/setup
-   values I need, but redact the relay token.
+   values I need, but redact the relay token and Site bypass bearer. The local
+   client must keep using the Cloudflare Worker URL, not a protected Site URL.
 7. Delete temporary test keys and temporary logs containing sensitive data.
 8. State clearly that process heartbeats cannot prevent the platform from
    reclaiming the entire VM, and identify which files require persistent
@@ -45,6 +52,8 @@ Do not:
 - request or store my SSH private key;
 - request a Cloudflare API token;
 - expose the SSH service on `0.0.0.0`;
+- commit or print a Site project ID, bypass bearer, deployed URL, or environment
+  values;
 - send the Site bypass bearer to the Cloudflare Worker or local client;
 - disable SSH host-key checking;
 - commit runtime configuration or secrets;

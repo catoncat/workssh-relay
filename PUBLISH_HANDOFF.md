@@ -14,8 +14,8 @@ Instructions:
 
 1. Materialize and extract the archive into a clean directory. Do not reuse any
    unrelated repository or Git history.
-2. Read `README.md`, `SECURITY.md`, `AGENT_TASK.md`, and this handoff before
-   making changes.
+2. Read `README.md`, `SECURITY.md`, `AGENT_TASK.md`,
+   `docs/SITE_INGRESS.md`, and this handoff before making changes.
 3. Confirm the connected GitHub owner with a read-only call. If
    `workssh-relay` already exists, do not overwrite it; use
    `workssh-relay-community` and report the changed name.
@@ -27,11 +27,13 @@ Instructions:
    - `npm run check`
    - `./scripts/e2e-local.sh`
    - `node scripts/e2e-relay.cjs`
+   - `node --check site-ingress/worker.js`
    - `npm run secret-scan`
 6. Perform an additional full-tree scan before committing. Reject any live
-   Worker URL, relay token, Cloudflare/API credential, SSH key, email address,
-   user name, sandbox ID, `/workspace/scratch/...` path, or runtime config.
-   Placeholders and `*.example.invalid` test values are intentional.
+   Worker or Site URL, relay token, Site bypass bearer, Site project/version/
+   deployment ID, Cloudflare/API credential, SSH key, email address, user name,
+   sandbox ID, `/workspace/scratch/...` path, or runtime config. Placeholders
+   and `*.example.invalid` test values are intentional.
 7. Create the public repository with description:
    `Self-hosted SSH relay for ephemeral Work sandboxes`
 8. Commit all source files in one clean initial commit and push the default
@@ -40,7 +42,11 @@ Instructions:
 9. After pushing, inspect the public repository and the complete Git history.
    Confirm it is public, CI is present, Apache-2.0 is detected, and no secret
    appears in history.
-10. Return the public URL and the shortest working quick-start. If GitHub asks
+10. Confirm the README distinguishes direct Worker access from the optional
+    Site ingress used by proxy-restricted Work sandboxes. Confirm the Agent
+    supports `OAI-Sites-Authorization` and `http-poll` without sending the Site
+    bearer upstream.
+11. Return the public URL and the shortest working quick-start. If GitHub asks
     for connection or approval, stop only for that UI action and continue from
     the same step afterward.
 

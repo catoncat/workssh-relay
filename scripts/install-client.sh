@@ -2,7 +2,7 @@
 set -euo pipefail
 
 root_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-: "${WORKSSH_WORKER_URL:?Set WORKSSH_WORKER_URL to your HTTPS Worker URL}"
+: "${WORKSSH_WORKER_URL:?Set WORKSSH_WORKER_URL to your HTTPS relay endpoint URL}"
 : "${WORKSSH_RELAY_TOKEN:?Set WORKSSH_RELAY_TOKEN to your relay secret}"
 : "${WORKSSH_TUNNEL_ID:?Set WORKSSH_TUNNEL_ID to the sandbox tunnel ID}"
 command -v node >/dev/null || { echo "Node.js 20+ is required." >&2; exit 1; }

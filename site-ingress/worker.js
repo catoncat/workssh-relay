@@ -21,16 +21,13 @@ function upstreamUrl(request, configuredBase) {
   if (upstream.protocol !== "https:") {
     throw new Error("UPSTREAM_RELAY_URL must use HTTPS");
   }
-  upstream.pathname = `${upstream.pathname.replace(/\/+$/, "")}/connect`;
+  upstream.pathname = `${upstream.pathname.replace(/\/+$/, "")}${incoming.pathname}`;
   upstream.search = incoming.search;
   upstream.hash = "";
   return upstream;
 }
 
-async function proxyWebSocket(request, env) {
-  if (request.headers.get("upgrade")?.toLowerCase() !== "websocket") {
-    return json({ error: "Expected a WebSocket upgrade" }, 426);
-  }
+async function proxyPoll(request, env) {
   if (!authorized(request, env)) {
     return json({ error: "Unauthorized" }, 401);
   }
@@ -46,40 +43,19 @@ async function proxyWebSocket(request, env) {
   headers.delete("cookie");
 
   const upstreamResponse = await fetch(upstreamUrl(request, env.UPSTREAM_RELAY_URL), {
-    method: "GET",
+    method: request.method,
     headers,
+    body: request.method === "POST" ? request.body : undefined,
   });
-  if (upstreamResponse.status !== 101 || !upstreamResponse.webSocket) {
-    console.error(`upstream WebSocket rejected: HTTP ${upstreamResponse.status}`);
-    return json({ error: "Upstream relay rejected the connection" }, 502);
-  }
-
-  const pair = new WebSocketPair();
-  const [client, incoming] = Object.values(pair);
-  const upstream = upstreamResponse.webSocket;
-  incoming.accept();
-  upstream.accept();
-
-  const closeBoth = (code = 1011, reason = "relay closed") => {
-    try { incoming.close(code, reason); } catch {}
-    try { upstream.close(code, reason); } catch {}
-  };
-  incoming.addEventListener("message", (event) => {
-    try { upstream.send(event.data); } catch { closeBoth(); }
+  return new Response(upstreamResponse.body, {
+    status: upstreamResponse.status,
+    headers: {
+      "content-type": upstreamResponse.headers.get("content-type")
+        ?? "application/json; charset=utf-8",
+      "cache-control": "no-store",
+      "x-content-type-options": "nosniff",
+    },
   });
-  upstream.addEventListener("message", (event) => {
-    try { incoming.send(event.data); } catch { closeBoth(); }
-  });
-  incoming.addEventListener("close", (event) => {
-    try { upstream.close(event.code, event.reason); } catch {}
-  });
-  upstream.addEventListener("close", (event) => {
-    try { incoming.close(event.code, event.reason); } catch {}
-  });
-  incoming.addEventListener("error", () => closeBoth());
-  upstream.addEventListener("error", () => closeBoth());
-
-  return new Response(null, { status: 101, webSocket: client });
 }
 
 export default {
@@ -91,13 +67,17 @@ export default {
         ok: true,
         service: "workssh-site-ingress",
         protocol: 1,
+        transport: "http-poll",
         upstreamConfigured: Boolean(env.UPSTREAM_RELAY_URL && env.RELAY_TOKEN),
       });
     }
 
-    if (request.method === "GET" && url.pathname === "/connect") {
+    if (
+      (request.method === "GET" && url.pathname === "/poll/recv")
+      || (request.method === "POST" && url.pathname === "/poll/send")
+    ) {
       try {
-        return await proxyWebSocket(request, env);
+        return await proxyPoll(request, env);
       } catch (error) {
         console.error("ingress proxy failed", error);
         return json({ error: "Upstream relay unavailable" }, 502);

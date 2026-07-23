@@ -46,6 +46,10 @@ export function validateCommon(config) {
   ) {
     throw new Error("siteBearerToken must contain at least 32 characters when set");
   }
+  normalized.transport ??= "websocket";
+  if (normalized.transport !== "websocket" && normalized.transport !== "http-poll") {
+    throw new Error("transport must be websocket or http-poll");
+  }
   return normalized;
 }
 

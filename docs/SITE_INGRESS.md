@@ -8,8 +8,11 @@ Mac SSH client ───────────────► Cloudflare Worke
 Work sandbox Agent ─► Site ───► Cloudflare Worker
 ```
 
-The Site is a narrow WebSocket reverse proxy. SSH encryption remains end to
-end. The Site does not decode or persist SSH payloads.
+The Site is a narrow HTTPS reverse proxy. Sites production dispatch may reject
+programmatic WebSocket upgrades, so the sandbox Agent uses bounded HTTP
+polling through the Site. The Cloudflare Durable Object joins those frames to
+the local client's normal WebSocket. SSH encryption remains end to end. The
+Site does not decode or persist SSH payloads.
 
 ## Deploy
 
@@ -47,6 +50,7 @@ export WORKSSH_RELAY_TOKEN="YOUR_RELAY_TOKEN"
 export WORKSSH_TUNNEL_ID="SAME_TUNNEL_ID"
 export WORKSSH_PUBLIC_KEY_FILE="/path/to/id_ed25519.pub"
 export WORKSSH_SITE_BEARER_TOKEN="YOUR_SITE_BYPASS_BEARER"
+export WORKSSH_TRANSPORT="http-poll"
 ./scripts/install-agent.sh
 ./scripts/start-agent.sh
 ```
@@ -56,8 +60,10 @@ requires `RELAY_TOKEN`.
 
 ## Security boundary
 
-- The ingress accepts only `/connect` WebSocket upgrades.
+- The ingress accepts only `GET /poll/recv` and `POST /poll/send`.
 - It verifies `x-relay-token` before proxying.
 - It strips `Authorization`, cookies, and the incoming Host header.
-- It forwards the relay token only to the configured upstream Worker.
+- It strips `OAI-Sites-Authorization` before forwarding.
+- It forwards the relay token and protocol frame only to the configured
+  upstream Worker.
 - The Cloudflare Worker remains the authoritative tunnel router.

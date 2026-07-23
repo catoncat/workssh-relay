@@ -15,6 +15,7 @@ const configPath = writePrivateJson(
     ...(process.env.WORKSSH_SITE_BEARER_TOKEN
       ? { siteBearerToken: process.env.WORKSSH_SITE_BEARER_TOKEN }
       : {}),
+    transport: "websocket",
   }),
 );
 const identityFile = path.resolve(

@@ -22,6 +22,9 @@ channel and attempt an SSH connection.
 - Use a random tunnel ID and a dedicated SSH key.
 - Verify the SSH host-key prompt on first connection.
 - Never commit `.env`, `config.json`, private keys, live Worker URLs, or logs.
+- Treat a workspace-protected Site bypass bearer like a password. Store it only
+  in the sandbox Agent's `0600` runtime configuration, never in the local
+  client, repository, shell history, screenshots, or logs.
 - Rotate the relay token after accidental disclosure:
   `npx wrangler secret put RELAY_TOKEN`.
 - Review your Cloudflare Worker logs and delete unused Workers.
@@ -35,6 +38,10 @@ The bundled SSH server:
 - accepts only one configured public key;
 - rejects TCP forwarding and agent forwarding;
 - supports shell and exec channels only.
+
+The optional Site ingress authenticates the relay token, strips Site identity
+headers and cookies before proxying, and forwards only bounded HTTP polling
+frames to the configured HTTPS Worker. It does not replace SSH authentication.
 
 ## Reporting a vulnerability
 

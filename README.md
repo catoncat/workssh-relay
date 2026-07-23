@@ -18,7 +18,7 @@ flowchart LR
   M["你的电脑<br/>ssh"] -->|WSS 出站| R["你的 Cloudflare Worker<br/>Durable Object"]
   S["临时 Work 沙盒<br/>127.0.0.1:2222"] -->|可直达时 WSS| R
   S -->|受限环境| I["ChatGPT Site 入口"]
-  I -->|WSS 转发| R
+  I -->|HTTPS 轮询转发| R
 ```
 
 ## 安全默认值
@@ -73,6 +73,7 @@ export WORKSSH_TUNNEL_ID="$(openssl rand -hex 16)"
 export WORKSSH_PUBLIC_KEY_FILE="/path/to/id_ed25519.pub"
 # 仅当上面的 URL 是受工作区保护的 chatgpt.site 入口时：
 # export WORKSSH_SITE_BEARER_TOKEN="YOUR_SITE_BYPASS_BEARER"
+# export WORKSSH_TRANSPORT="http-poll"
 ./scripts/install-agent.sh
 ./scripts/start-agent.sh
 ```

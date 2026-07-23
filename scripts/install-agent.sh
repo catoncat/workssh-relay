@@ -4,7 +4,7 @@ set -euo pipefail
 root_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 state_dir="${WORKSSH_STATE_DIR:-/workspace/workssh-state}"
 
-: "${WORKSSH_WORKER_URL:?Set WORKSSH_WORKER_URL to your HTTPS Worker URL}"
+: "${WORKSSH_WORKER_URL:?Set WORKSSH_WORKER_URL to your HTTPS relay endpoint URL}"
 : "${WORKSSH_RELAY_TOKEN:?Set WORKSSH_RELAY_TOKEN to your relay secret}"
 : "${WORKSSH_TUNNEL_ID:?Set WORKSSH_TUNNEL_ID to a random URL-safe ID}"
 if [[ -z "${WORKSSH_PUBLIC_KEY:-}" && -z "${WORKSSH_PUBLIC_KEY_FILE:-}" ]]; then

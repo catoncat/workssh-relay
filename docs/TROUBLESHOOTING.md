@@ -4,7 +4,8 @@
 
 Run `./scripts/status.sh` in the sandbox. Both `ssh-server` and `relay-agent`
 must be running. Confirm that the local and sandbox configurations use the
-same Worker URL, token, and tunnel ID.
+same token and tunnel ID. Their URLs intentionally differ when the sandbox uses
+a Site ingress.
 
 If the Worker was just redeployed, both WebSockets were disconnected. The
 agent reconnects automatically; retry the SSH command.
@@ -57,5 +58,6 @@ With a Site ingress, confirm:
 
 - the local client uses the Cloudflare Worker URL;
 - the sandbox Agent uses the Site URL;
+- the sandbox Agent configuration uses `transport: "http-poll"`;
 - both use the same relay token and tunnel ID;
 - a workspace-protected Site bearer is configured only on the Agent.

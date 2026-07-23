@@ -40,7 +40,8 @@ Requirements: a Cloudflare account, Node.js 22+, `git`, `ssh`, and
    ```
 
    If `WORKSSH_WORKER_URL` is a workspace-protected Site ingress, also set
-   `WORKSSH_SITE_BEARER_TOKEN`. Keep it private.
+   `WORKSSH_SITE_BEARER_TOKEN` and set `WORKSSH_TRANSPORT=http-poll`. Keep the
+   bearer private.
 
 3. On macOS or Linux, clone the repository, set the first three variables to
    the same values, then run:
@@ -61,5 +62,6 @@ from suspending, reclaiming, or replacing the entire VM. Persist valuable work
 outside the ephemeral VM and redeploy when necessary.
 
 See [Architecture](docs/ARCHITECTURE.md),
-[Troubleshooting](docs/TROUBLESHOOTING.md), [Security](SECURITY.md), and the
+[Troubleshooting](docs/TROUBLESHOOTING.md),
+[Site ingress](docs/SITE_INGRESS.md), [Security](SECURITY.md), and the
 [Work Agent handoff prompt](AGENT_TASK.md).

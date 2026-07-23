@@ -7,9 +7,12 @@ interface Env {
 
 type Role = "agent" | "client";
 type Attachment = { role: Role; connectedAt: number };
+type PollQueueState = { head: number; tail: number; bytes: number };
 
 const PROTOCOL = 1;
 const MAX_TEXT_FRAME = 1_500_000;
+const MAX_POLL_QUEUE_BYTES = 4_000_000;
+const POLL_AGENT_TTL_MS = 15_000;
 const TUNNEL_RE = /^[A-Za-z0-9_-]{16,128}$/;
 
 function json(body: unknown, status = 200): Response {
@@ -49,11 +52,16 @@ export default {
       return json({ ok: true, service: "workssh-relay", protocol: PROTOCOL });
     }
 
-    if (request.method !== "GET" || url.pathname !== "/connect") {
+    const isWebSocket = request.method === "GET" && url.pathname === "/connect";
+    const isPoll = (
+      (request.method === "GET" && url.pathname === "/poll/recv")
+      || (request.method === "POST" && url.pathname === "/poll/send")
+    );
+    if (!isWebSocket && !isPoll) {
       return json({ ok: false, error: "not_found" }, 404);
     }
 
-    if (request.headers.get("upgrade")?.toLowerCase() !== "websocket") {
+    if (isWebSocket && request.headers.get("upgrade")?.toLowerCase() !== "websocket") {
       return json({ ok: false, error: "websocket_required" }, 426);
     }
 
@@ -63,7 +71,7 @@ export default {
     }
 
     const tunnel = url.searchParams.get("tunnel") ?? "";
-    const role = url.searchParams.get("role") ?? "";
+    const role = isPoll ? "agent" : (url.searchParams.get("role") ?? "");
     if (!TUNNEL_RE.test(tunnel) || (role !== "agent" && role !== "client")) {
       return json({ ok: false, error: "invalid_parameters" }, 400);
     }
@@ -76,6 +84,13 @@ export default {
 export class TunnelRoom extends DurableObject<Env> {
   async fetch(request: Request): Promise<Response> {
     const url = new URL(request.url);
+    if (url.pathname === "/poll/recv" && request.method === "GET") {
+      return this.pollReceive();
+    }
+    if (url.pathname === "/poll/send" && request.method === "POST") {
+      return this.pollSend(request);
+    }
+
     const role = url.searchParams.get("role") as Role;
     if (role !== "agent" && role !== "client") {
       return json({ ok: false, error: "invalid_role" }, 400);
@@ -98,7 +113,7 @@ export class TunnelRoom extends DurableObject<Env> {
     this.ctx.acceptWebSocket(server, [role]);
 
     server.send(control("connected"));
-    this.announcePairState();
+    await this.announcePairState();
 
     return new Response(null, { status: 101, webSocket: client });
   }
@@ -116,16 +131,26 @@ export class TunnelRoom extends DurableObject<Env> {
 
     const targetRole: Role = attachment.role === "agent" ? "client" : "agent";
     const peers = this.ctx.getWebSockets(targetRole);
-    if (peers.length === 0) {
-      socket.send(control("peer-wait"));
+    if (peers.length > 0) {
+      for (const peer of peers) {
+        try {
+          peer.send(message);
+        } catch {
+          // A concurrent close will be handled by webSocketClose.
+        }
+      }
       return;
     }
-    for (const peer of peers) {
-      try {
-        peer.send(message);
-      } catch {
-        // A concurrent close will be handled by webSocketClose.
+
+    if (targetRole === "agent" && await this.pollAgentPresent()) {
+      if (!(await this.enqueueForPollAgent(message))) {
+        socket.close(1009, "poll queue exceeded");
       }
+      return;
+    }
+
+    if (peers.length === 0) {
+      socket.send(control("peer-wait"));
     }
   }
 
@@ -140,7 +165,7 @@ export class TunnelRoom extends DurableObject<Env> {
     } catch {
       // Cloudflare may already have completed the close handshake.
     }
-    this.announcePairState();
+    await this.announcePairState();
   }
 
   async webSocketError(socket: WebSocket): Promise<void> {
@@ -149,13 +174,101 @@ export class TunnelRoom extends DurableObject<Env> {
     } catch {
       // Already closed.
     }
-    this.announcePairState();
+    await this.announcePairState();
   }
 
-  private announcePairState(): void {
+  private async pollSend(request: Request): Promise<Response> {
+    const message = await request.text();
+    if (!message.startsWith("d:") || message.length > MAX_TEXT_FRAME) {
+      return json({ ok: false, error: "invalid_frame" }, 400);
+    }
+
+    await this.touchPollAgent();
+    const clients = this.ctx.getWebSockets("client");
+    if (clients.length === 0) {
+      return json({ ok: true, protocol: PROTOCOL, peerReady: false }, 202);
+    }
+    for (const client of clients) {
+      try {
+        client.send(message);
+      } catch {
+        // A concurrent close will be reflected on the next request.
+      }
+    }
+    return json({ ok: true, protocol: PROTOCOL, peerReady: true }, 202);
+  }
+
+  private async pollReceive(): Promise<Response> {
+    await this.touchPollAgent();
+    const frames = await this.dequeueForPollAgent(16);
+    const peerReady = this.ctx.getWebSockets("client").length > 0;
+    await this.announcePairState();
+    return json({ ok: true, protocol: PROTOCOL, peerReady, frames });
+  }
+
+  private async touchPollAgent(): Promise<void> {
+    await this.ctx.storage.put("poll-agent-expires-at", Date.now() + POLL_AGENT_TTL_MS);
+  }
+
+  private async pollAgentPresent(): Promise<boolean> {
+    const expiresAt = await this.ctx.storage.get<number>("poll-agent-expires-at");
+    return (expiresAt ?? 0) >= Date.now();
+  }
+
+  private async queueState(): Promise<PollQueueState> {
+    return (await this.ctx.storage.get<PollQueueState>("poll-queue-state"))
+      ?? { head: 0, tail: 0, bytes: 0 };
+  }
+
+  private async enqueueForPollAgent(message: string): Promise<boolean> {
+    const bytes = new TextEncoder().encode(message).byteLength;
+    const state = await this.queueState();
+    if (state.bytes + bytes > MAX_POLL_QUEUE_BYTES) return false;
+    const sequence = state.tail + 1;
+    await this.ctx.storage.put({
+      [`poll-frame:${sequence}`]: message,
+      "poll-queue-state": {
+        head: state.head,
+        tail: sequence,
+        bytes: state.bytes + bytes,
+      } satisfies PollQueueState,
+    });
+    return true;
+  }
+
+  private async dequeueForPollAgent(limit: number): Promise<string[]> {
+    const state = await this.queueState();
+    const frames: string[] = [];
+    let bytes = state.bytes;
+    let head = state.head;
+    const deleteKeys: string[] = [];
+    while (head < state.tail && frames.length < limit) {
+      const sequence = head + 1;
+      const key = `poll-frame:${sequence}`;
+      const frame = await this.ctx.storage.get<string>(key);
+      head = sequence;
+      deleteKeys.push(key);
+      if (frame) {
+        frames.push(frame);
+        bytes -= new TextEncoder().encode(frame).byteLength;
+      }
+    }
+    if (deleteKeys.length > 0) {
+      await this.ctx.storage.delete(deleteKeys);
+      await this.ctx.storage.put("poll-queue-state", {
+        head,
+        tail: state.tail,
+        bytes: Math.max(0, bytes),
+      } satisfies PollQueueState);
+    }
+    return frames;
+  }
+
+  private async announcePairState(): Promise<void> {
     const agents = this.ctx.getWebSockets("agent");
     const clients = this.ctx.getWebSockets("client");
-    const message = control(agents.length > 0 && clients.length > 0 ? "peer-ready" : "peer-wait");
+    const agentPresent = agents.length > 0 || await this.pollAgentPresent();
+    const message = control(agentPresent && clients.length > 0 ? "peer-ready" : "peer-wait");
     for (const socket of [...agents, ...clients]) {
       try {
         socket.send(message);

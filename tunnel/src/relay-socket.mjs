@@ -19,14 +19,18 @@ function proxyAgent() {
   return new HttpsProxyAgent(value);
 }
 
+export function relayHeaders(relayToken, siteBearerToken) {
+  const headers = { "x-relay-token": relayToken };
+  if (siteBearerToken) {
+    headers["OAI-Sites-Authorization"] = `Bearer ${siteBearerToken}`;
+  }
+  return headers;
+}
+
 export function openRelay({ workerUrl, relayToken, siteBearerToken, tunnelId, role }) {
   return new Promise((resolve, reject) => {
-    const headers = { "x-relay-token": relayToken };
-    if (siteBearerToken) {
-      headers["OAI-Sites-Authorization"] = `Bearer ${siteBearerToken}`;
-    }
     const socket = new WebSocket(websocketUrl(workerUrl, tunnelId, role), {
-      headers,
+      headers: relayHeaders(relayToken, siteBearerToken),
       agent: proxyAgent(),
       handshakeTimeout: 20_000,
       maxPayload: 1_500_000,

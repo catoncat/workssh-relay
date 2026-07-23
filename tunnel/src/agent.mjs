@@ -4,6 +4,7 @@ import net from "node:net";
 import { once } from "node:events";
 import { decodeData, encodeData, parseControl } from "./framing.mjs";
 import { openRelay } from "./relay-socket.mjs";
+import { runHttpPollAgent } from "./http-poll.mjs";
 import { readConfig } from "./config.mjs";
 
 const configArgument = process.argv.indexOf("--config");
@@ -33,6 +34,14 @@ async function send(socket, frame) {
 }
 
 async function runConnection() {
+  if (config.transport === "http-poll") {
+    writeStatus("connecting");
+    await runHttpPollAgent(config, {
+      isStopping: () => stopping,
+      writeStatus,
+    });
+    return;
+  }
   writeStatus("connecting");
   const relay = await openRelay({ ...config, role: "agent" });
   writeStatus("connected");

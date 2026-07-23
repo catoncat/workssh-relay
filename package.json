@@ -5,7 +5,7 @@
   "description": "Self-hosted SSH relay for ephemeral Work sandboxes",
   "scripts": {
     "install:all": "npm --prefix relay install && npm --prefix tunnel install",
-    "check": "npm --prefix tunnel test && npm --prefix relay run check",
+    "check": "node --check site-ingress/worker.js && npm --prefix tunnel test && npm --prefix relay run check",
     "secret-scan": "bash scripts/secret-scan.sh"
   },
   "engines": {

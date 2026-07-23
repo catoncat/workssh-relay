@@ -19,6 +19,7 @@ const common = validateCommon({
   ...(process.env.WORKSSH_SITE_BEARER_TOKEN
     ? { siteBearerToken: process.env.WORKSSH_SITE_BEARER_TOKEN }
     : {}),
+  transport: process.env.WORKSSH_TRANSPORT || "websocket",
 });
 fs.mkdirSync(stateDirectory, { recursive: true, mode: 0o700 });
 fs.chmodSync(stateDirectory, 0o700);

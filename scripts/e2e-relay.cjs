@@ -86,6 +86,22 @@ function waitFor(socket, predicate, timeout = 5_000) {
   });
 }
 
+async function poll(path, options = {}) {
+  const response = await fetch(
+    `http://127.0.0.1:${port}${path}?tunnel=${tunnel}`,
+    {
+      ...options,
+      headers: {
+        "x-relay-token": token,
+        ...(options.headers || {}),
+      },
+    },
+  );
+  const value = await response.json();
+  if (!response.ok) throw new Error(`poll HTTP ${response.status}: ${JSON.stringify(value)}`);
+  return value;
+}
+
 async function main() {
   if (!(await waitForHealth())) return;
   await assert.rejects(() => connect("client", "wrong-token-value-with-32-characters"), (error) => {
@@ -112,6 +128,38 @@ async function main() {
 
   agent.close(1000);
   client.close(1000);
+
+  await delay(100);
+  const initialPoll = await poll("/poll/recv");
+  assert.equal(initialPoll.protocol, 1);
+  assert.equal(initialPoll.peerReady, false);
+
+  const polledClient = await connect("client");
+  await waitFor(polledClient, (text) => JSON.parse(text).type === "peer-ready");
+  const readyPoll = await poll("/poll/recv");
+  assert.equal(readyPoll.peerReady, true);
+
+  const polledForward = crypto.randomBytes(65_536);
+  const polledForwardFrame = `d:${polledForward.toString("base64")}`;
+  const receivedPolledForward = waitFor(polledClient, (text) => text.startsWith("d:"));
+  await poll("/poll/send", {
+    method: "POST",
+    headers: { "content-type": "text/plain; charset=utf-8" },
+    body: polledForwardFrame,
+  });
+  assert.equal(await receivedPolledForward, polledForwardFrame);
+
+  const polledReverse = crypto.randomBytes(65_536);
+  const polledReverseFrame = `d:${polledReverse.toString("base64")}`;
+  polledClient.send(polledReverseFrame);
+  let receivedPolledReverse = null;
+  for (let attempt = 0; attempt < 20 && !receivedPolledReverse; attempt += 1) {
+    const result = await poll("/poll/recv");
+    receivedPolledReverse = result.frames.find((frame) => frame.startsWith("d:")) ?? null;
+    if (!receivedPolledReverse) await delay(50);
+  }
+  assert.equal(receivedPolledReverse, polledReverseFrame);
+  polledClient.close(1000);
   console.log("local relay e2e: ok");
 }
 
