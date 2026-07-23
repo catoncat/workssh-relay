@@ -4,6 +4,7 @@ import fs from "node:fs";
 import { spawn } from "node:child_process";
 import ssh2 from "ssh2";
 import { readConfig } from "./config.mjs";
+import { SSH_IDENT } from "./ssh-ident.mjs";
 
 const { Server, utils } = ssh2;
 const configArgument = process.argv.indexOf("--config");
@@ -62,7 +63,7 @@ function bridgeProcess(channel, child) {
 const server = new Server(
   {
     hostKeys: [hostKey],
-    ident: "SSH-2.0-WorkSSH",
+    ident: SSH_IDENT,
     algorithms: {
       serverHostKey: ["ssh-ed25519"],
     },

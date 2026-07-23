@@ -31,13 +31,17 @@ channel and attempt an SSH connection.
 
 ## Deliberate restrictions
 
-The bundled SSH server:
+The current bundled SSH server implementation:
 
 - listens only on `127.0.0.1`;
 - rejects password authentication;
 - accepts only one configured public key;
 - rejects TCP forwarding and agent forwarding;
 - supports shell and exec channels only.
+
+These are restrictions enforced by this repository's server code, not settings
+the user enabled in Cloudflare, macOS, or ChatGPT. Supporting forwarding or
+other channels would require an explicit implementation and security review.
 
 The optional Site ingress authenticates the relay token, strips Site identity
 headers and cookies before proxying, and forwards only bounded HTTP polling

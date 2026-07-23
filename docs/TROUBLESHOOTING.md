@@ -10,6 +10,86 @@ a Site ingress.
 If the Worker was just redeployed, both WebSockets were disconnected. The
 agent reconnects automatically; retry the SSH command.
 
+## `Connection closed by UNKNOWN port 65535`
+
+First check the local proxy log prefix:
+
+```text
+[workssh] relay connected; waiting for sandbox
+[workssh] sandbox connected
+```
+
+If it instead prints `[relay-proxy] connected`, the SSH alias still invokes a
+legacy proxy that sends raw WebSocket payloads. Protocol 1 requires every SSH
+data message to be a Base64 text frame beginning with `d:`. Re-run the latest
+`scripts/install-client.sh` and test the generated `ssh workssh-sandbox` alias.
+
+Inspect the effective alias rather than assuming a config block was replaced:
+
+```bash
+ssh -G workssh-sandbox | grep -Ei '^(hostname|identityfile|proxycommand) '
+```
+
+## `banner exchange: invalid format`
+
+Read the local SSH server's first line from the same network namespace as the
+Agent. It must be exactly:
+
+```text
+SSH-2.0-WorkSSH\r\n
+```
+
+The `ssh2` package automatically prepends `SSH-2.0-` to its `ident` setting.
+Passing `SSH-2.0-WorkSSH` as `ident` produces the invalid doubled banner
+`SSH-2.0-SSH-2.0-WorkSSH`.
+
+If the first line is correct but OpenSSH still reports `invalid format`, test a
+second connection and inspect whether the relay reused an SSH stream whose
+banner was already consumed. Each newly paired client must get a fresh local
+connection to `127.0.0.1:2222`.
+
+## `Bad packet length 1397966893`
+
+`1397966893` is hexadecimal `0x5353482d`, the ASCII bytes `SSH-`. Seeing it as a
+packet length means the client received a second SSH banner after the first
+banner was already accepted.
+
+When a stale relay client is replaced, the Worker may emit several
+`peer-ready` controls close together. The Agent must coalesce that burst into
+one fresh local SSH stream. Verify with two consecutive full connections:
+
+```bash
+ssh workssh-sandbox 'printf "FIRST_OK\n"'
+ssh workssh-sandbox 'printf "SECOND_OK\n"'
+```
+
+Checking only `/health` or the first banner does not cover this failure.
+
+## PID file says running but the PID is unrelated
+
+PID values can be reused. `kill -0 PID` proves only that some process with that
+number exists. Current lifecycle scripts also compare `/proc/PID/cmdline`
+against the expected `supervisor.mjs --config ...` command.
+
+In managed sandboxes, separate execution calls may use different PID and
+network namespaces. A PID that appears to be `sites-preview` elsewhere, or a
+connection refusal from another namespace, does not prove that a supervisor in
+the persistent Agent session died. Run process, socket, and log checks inside
+the same persistent session that owns the supervisor.
+
+If `scripts/status.sh` marks `status.json` stale, do not use its old
+`connected` value as evidence. The current Agent refreshes connected status
+every 30 seconds, and the script requires a matching live Agent process and a
+recent timestamp.
+
+## Two Agents use the same Tunnel ID
+
+The relay accepts one Agent role per Tunnel ID. A new Agent replaces the old
+one. Use a different random Tunnel ID for every simultaneously active sandbox,
+or stop the other Agent before testing. Two supervisors that share the same
+state directory also compete for port `127.0.0.1:2222` and overwrite runtime
+files.
+
 ## `401 Unauthorized`
 
 The Worker secret and local configuration do not match. Rotate or set it:
