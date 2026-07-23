@@ -45,10 +45,41 @@ async function proxyWebSocket(request, env) {
   headers.delete("oai-sites-authorization");
   headers.delete("cookie");
 
-  return fetch(upstreamUrl(request, env.UPSTREAM_RELAY_URL), {
+  const upstreamResponse = await fetch(upstreamUrl(request, env.UPSTREAM_RELAY_URL), {
     method: "GET",
     headers,
   });
+  if (upstreamResponse.status !== 101 || !upstreamResponse.webSocket) {
+    console.error(`upstream WebSocket rejected: HTTP ${upstreamResponse.status}`);
+    return json({ error: "Upstream relay rejected the connection" }, 502);
+  }
+
+  const pair = new WebSocketPair();
+  const [client, incoming] = Object.values(pair);
+  const upstream = upstreamResponse.webSocket;
+  incoming.accept();
+  upstream.accept();
+
+  const closeBoth = (code = 1011, reason = "relay closed") => {
+    try { incoming.close(code, reason); } catch {}
+    try { upstream.close(code, reason); } catch {}
+  };
+  incoming.addEventListener("message", (event) => {
+    try { upstream.send(event.data); } catch { closeBoth(); }
+  });
+  upstream.addEventListener("message", (event) => {
+    try { incoming.send(event.data); } catch { closeBoth(); }
+  });
+  incoming.addEventListener("close", (event) => {
+    try { upstream.close(event.code, event.reason); } catch {}
+  });
+  upstream.addEventListener("close", (event) => {
+    try { incoming.close(event.code, event.reason); } catch {}
+  });
+  incoming.addEventListener("error", () => closeBoth());
+  upstream.addEventListener("error", () => closeBoth());
+
+  return new Response(null, { status: 101, webSocket: client });
 }
 
 export default {
