@@ -22,7 +22,9 @@ function proxyAgent() {
 export function openRelay({ workerUrl, relayToken, siteBearerToken, tunnelId, role }) {
   return new Promise((resolve, reject) => {
     const headers = { "x-relay-token": relayToken };
-    if (siteBearerToken) headers.authorization = `Bearer ${siteBearerToken}`;
+    if (siteBearerToken) {
+      headers["OAI-Sites-Authorization"] = `Bearer ${siteBearerToken}`;
+    }
     const socket = new WebSocket(websocketUrl(workerUrl, tunnelId, role), {
       headers,
       agent: proxyAgent(),

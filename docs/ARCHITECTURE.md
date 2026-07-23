@@ -21,8 +21,9 @@
 
 The URL is `/connect?tunnel=<opaque-id>&role=agent|client`. Authentication uses
 the `x-relay-token` request header. A workspace-protected Site ingress
-additionally requires `Authorization: Bearer <site-bypass-token>` between the
-sandbox Agent and the Site. That bearer is not sent to the upstream Worker.
+additionally requires
+`OAI-Sites-Authorization: Bearer <site-bypass-token>` between the sandbox Agent
+and the Site. That bearer is not sent to the upstream Worker.
 
 Relay control messages are JSON text:
 

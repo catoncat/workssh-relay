@@ -42,6 +42,7 @@ async function proxyWebSocket(request, env) {
   headers.set("x-relay-token", env.RELAY_TOKEN);
   headers.delete("host");
   headers.delete("authorization");
+  headers.delete("oai-sites-authorization");
   headers.delete("cookie");
 
   return fetch(upstreamUrl(request, env.UPSTREAM_RELAY_URL), {
