@@ -81,6 +81,11 @@ export WORKSSH_PUBLIC_KEY_FILE="/path/to/id_ed25519.pub"
 ```
 
 记下 `WORKSSH_TUNNEL_ID`。沙盒被平台回收后，需要在新沙盒里重新执行此步骤。
+同一时间只允许一个沙盒 Agent 使用这个 Tunnel ID；第二个 Agent 会替换第一个。
+
+不要用单次命令里的普通后台进程冒充保活。Agent 必须运行在持续存在的终端、PTY
+或平台提供的受管理进程会话中。`scripts/status.sh` 会同时核验 PID 对应的命令、
+Agent 状态和状态更新时间，不再把碰巧复用同一 PID 的无关进程当作 supervisor。
 
 ### 3. 安装本地端
 
@@ -99,6 +104,47 @@ ssh workssh-sandbox
 安装脚本会备份并更新 `~/.ssh/config`，配置写入
 `~/.config/workssh/config.json`。
 
+新版客户端的正确日志前缀是：
+
+```text
+[workssh] relay connected; waiting for sandbox
+[workssh] sandbox connected
+```
+
+如果仍看到旧的 `[relay-proxy] connected`，说明 SSH alias 还在调用旧客户端。
+请使用安装脚本生成的 `ssh workssh-sandbox`，或检查：
+
+```bash
+ssh -G workssh-sandbox | grep -i proxycommand
+```
+
+首次连接会显示 SSH 主机指纹确认。这是正常的 SSH 主机认证；核对指纹后再接受，
+不要关闭 host-key checking。
+
+### 4. 验收时连续连接两次
+
+不要只看 `/health`、`status.json` 或一次 `relay connected` 就宣布成功。至少连续
+建立两次完整 SSH 会话：
+
+```bash
+ssh workssh-sandbox 'printf "FIRST_OK\n"'
+ssh workssh-sandbox 'printf "SECOND_OK\n"'
+```
+
+两次都必须输出对应结果。这个测试可以发现旧 SSH 流被复用、重复
+`peer-ready` 导致服务器重复发送 banner，以及旧客户端帧协议不兼容等问题。
+
+沙盒端同时检查：
+
+```bash
+./scripts/status.sh
+ss -ltn | grep '127.0.0.1:2222'
+```
+
+SSH server 必须只监听 `127.0.0.1:2222`。如果需要诊断 banner，从沙盒所在的同一
+网络命名空间读取端口，第一行必须恰好是 `SSH-2.0-WorkSSH\r\n`，不能出现两个
+`SSH-2.0-` 前缀。
+
 ## 生命周期：保活不等于永生
 
 本项目的 supervisor、WebSocket ping/pong 和自动重连可以恢复进程退出或网络抖动，
@@ -112,6 +158,8 @@ ssh workssh-sandbox
 
 - 已实现：本地电脑 → 沙盒的交互式 SSH shell 与远程命令。
 - 字节通道本身双向；但没有实现沙盒主动访问你的电脑，也没有实现 `ssh -R/-L/-D`。
+- 上述转发限制来自当前仓库内置 SSH server 的实现与安全默认值，不是用户在
+  Cloudflare、Mac 或 ChatGPT 中主动选择的设置。
 - 不承诺 24/7 在线或固定沙盒身份。
 
 English documentation: [README.en.md](README.en.md)

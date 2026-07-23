@@ -6,6 +6,7 @@ import { decodeData, encodeData, parseControl } from "./framing.mjs";
 import { openRelay } from "./relay-socket.mjs";
 import { runHttpPollAgent } from "./http-poll.mjs";
 import { readConfig } from "./config.mjs";
+import { createPeerSessionController } from "./peer-session.mjs";
 
 const configArgument = process.argv.indexOf("--config");
 if (configArgument < 0 || !process.argv[configArgument + 1]) {
@@ -14,9 +15,23 @@ if (configArgument < 0 || !process.argv[configArgument + 1]) {
 const { path: configPath, value: config } = readConfig(process.argv[configArgument + 1]);
 const statusPath = config.statusPath;
 let stopping = false;
+let activeRelay = null;
+let statusOwner = false;
+let currentStatus = { state: "starting", detail: "" };
 
 function writeStatus(state, detail = "") {
   if (!statusPath) return;
+  currentStatus = { state, detail };
+  if (statusOwner) {
+    try {
+      const existing = JSON.parse(fs.readFileSync(statusPath, "utf8"));
+      if (existing.pid !== process.pid) return;
+    } catch {
+      // Recreate a missing or malformed status file owned by this process.
+    }
+  } else {
+    statusOwner = true;
+  }
   fs.writeFileSync(statusPath, `${JSON.stringify({
     state,
     detail,
@@ -24,6 +39,13 @@ function writeStatus(state, detail = "") {
     updatedAt: new Date().toISOString(),
   }, null, 2)}\n`, { mode: 0o600 });
 }
+
+const statusHeartbeat = setInterval(() => {
+  if (currentStatus.state === "connected") {
+    writeStatus(currentStatus.state, currentStatus.detail);
+  }
+}, 30_000);
+statusHeartbeat.unref();
 
 async function send(socket, frame) {
   if (socket.readyState !== 1) return;
@@ -44,6 +66,7 @@ async function runConnection() {
   }
   writeStatus("connecting");
   const relay = await openRelay({ ...config, role: "agent" });
+  activeRelay = relay;
   writeStatus("connected");
   console.error("[workssh-agent] relay connected");
 
@@ -60,26 +83,34 @@ async function runConnection() {
 
   const openLocal = () => {
     if (local) return;
-    local = net.createConnection({
+    const socket = net.createConnection({
       host: config.sshHost ?? "127.0.0.1",
       port: config.sshPort ?? 2222,
     });
-    local.setNoDelay(true);
-    local.on("connect", () => {
+    local = socket;
+    socket.setNoDelay(true);
+    socket.on("connect", () => {
+      if (local !== socket) {
+        socket.destroy();
+        return;
+      }
       for (const chunk of pending) local.write(chunk);
       pending = [];
       pendingBytes = 0;
     });
-    local.on("data", (chunk) => {
+    socket.on("data", (chunk) => {
+      if (local !== socket) return;
       void send(relay, encodeData(chunk));
     });
-    local.on("error", (error) => {
+    socket.on("error", (error) => {
       console.error(`[workssh-agent] local SSH error: ${error.message}`);
     });
-    local.on("close", () => {
-      local = null;
+    socket.on("close", () => {
+      if (local === socket) local = null;
     });
   };
+
+  const peerSession = createPeerSessionController({ closeLocal, openLocal });
 
   relay.on("message", (raw) => {
     try {
@@ -95,8 +126,8 @@ async function runConnection() {
         return;
       }
       const message = parseControl(raw);
-      if (message.type === "peer-ready") openLocal();
-      if (message.type === "peer-wait") closeLocal();
+      if (message.type === "peer-ready") peerSession.ready();
+      if (message.type === "peer-wait") peerSession.wait();
     } catch (error) {
       console.error(`[workssh-agent] protocol error: ${error.message}`);
       relay.close(1002, "protocol error");
@@ -107,12 +138,15 @@ async function runConnection() {
     console.error(`[workssh-agent] relay error: ${error.message}`);
   });
   await once(relay, "close");
+  peerSession.cancel();
+  if (activeRelay === relay) activeRelay = null;
   closeLocal();
   writeStatus("disconnected");
 }
 
 const stop = () => {
   stopping = true;
+  activeRelay?.close(1000, "stopping");
 };
 process.on("SIGINT", stop);
 process.on("SIGTERM", stop);
@@ -132,3 +166,4 @@ while (!stopping) {
   }
 }
 writeStatus("stopped", `config=${configPath}`);
+clearInterval(statusHeartbeat);

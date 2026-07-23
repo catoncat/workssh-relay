@@ -41,12 +41,28 @@ Complete the work without asking me to run sandbox-side commands:
 4. Bind the SSH server only to `127.0.0.1`, use public-key authentication only,
    and do not enable TCP, dynamic, reverse, or agent forwarding.
 5. Start the supervisor, verify both children are running, and confirm the
-   outbound WebSocket or Site HTTP polling transport is connected.
-6. Run the local protocol tests and report the exact local SSH alias/setup
+   outbound WebSocket or Site HTTP polling transport is connected. Run it in a
+   persistent managed execution session, not as an ordinary background process
+   that dies with one command. Verify a PID belongs to the expected supervisor
+   command before trusting a PID file.
+6. Read the SSH server banner from `127.0.0.1:2222` in the same network
+   namespace. It must be exactly `SSH-2.0-WorkSSH\r\n`; `ssh2` automatically
+   supplies the `SSH-2.0-` prefix, so its `ident` option must contain only the
+   software identifier.
+7. Run the local protocol tests and report the exact local SSH alias/setup
    values I need, but redact the relay token and Site bypass bearer. The local
    client must keep using the Cloudflare Worker URL, not a protected Site URL.
-7. Delete temporary test keys and temporary logs containing sensitive data.
-8. State clearly that process heartbeats cannot prevent the platform from
+   Confirm the current client prints `[workssh]`, not the legacy
+   `[relay-proxy]` prefix.
+8. Complete two consecutive end-to-end SSH connections. A health response,
+   `relay connected`, a stale status file, or one successful banner is not
+   sufficient. The second connection must get a fresh SSH stream and complete
+   key exchange without `invalid format` or `Bad packet length`.
+9. Ensure only one live Agent uses the Tunnel ID. A second Agent with the same
+   ID replaces the first at the relay. Do not diagnose a process or listening
+   socket from a different isolated PID/network namespace.
+10. Delete temporary test keys and temporary logs containing sensitive data.
+11. State clearly that process heartbeats cannot prevent the platform from
    reclaiming the entire VM, and identify which files require persistent
    backup.
 
@@ -64,6 +80,9 @@ Do not:
 - claim that the VM or tunnel will remain online permanently.
 - claim a stale `status.json` value proves connectivity after the Agent process
   has exited.
+- treat `kill -0` alone as proof that a PID is the WorkSSH supervisor;
+- run two Agents with the same Tunnel ID during testing;
+- declare success before two consecutive full SSH handshakes complete.
 
 At the end, provide:
 
