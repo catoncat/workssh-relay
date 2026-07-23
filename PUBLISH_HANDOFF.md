@@ -45,7 +45,8 @@ Instructions:
 10. Confirm the README distinguishes direct Worker access from the optional
     Site ingress used by proxy-restricted Work sandboxes. Confirm the Agent
     supports `OAI-Sites-Authorization` and `http-poll` without sending the Site
-    bearer upstream.
+    bearer upstream. Preserve the explicit warning that Site ingress cannot
+    bypass an execution policy that also blocks `chatgpt.site`.
 11. Return the public URL and the shortest working quick-start. If GitHub asks
     for connection or approval, stop only for that UI action and continue from
     the same step afterward.

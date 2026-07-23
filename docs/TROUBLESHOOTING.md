@@ -54,6 +54,11 @@ test `/health` from both environments. A proxy CONNECT timeout to
 `workers.dev` requires the optional [Site ingress](SITE_INGRESS.md); changing
 the tunnel ID or relay token will not fix an egress policy block.
 
+If the Agent briefly reports `connected` and is then terminated with a policy
+error for `chatgpt.site:443`, the Site hostname is also blocked. Treat any
+remaining status file as stale. Stop retrying until one relay endpoint is
+allowed by the execution environment.
+
 With a Site ingress, confirm:
 
 - the local client uses the Cloudflare Worker URL;

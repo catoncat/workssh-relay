@@ -7,7 +7,11 @@ connections; no public inbound port is required.
 Some ChatGPT Work sandboxes cannot reach `workers.dev` through their egress
 proxy. In that case, deploy the optional
 [ChatGPT Site ingress](docs/SITE_INGRESS.md). The local client still connects
-directly to your Worker; only the sandbox agent uses the Site URL.
+directly to your Worker; only the sandbox agent uses the Site URL. Test the
+Site `/health` endpoint from the sandbox first. If the execution policy blocks
+both `workers.dev` and `chatgpt.site`, repository code cannot bypass that
+egress allowlist; one endpoint must be allowed or a different environment is
+required.
 
 This is an unofficial community project and is not affiliated with OpenAI,
 ChatGPT, or Cloudflare. Use it only with systems you own or are authorized to

@@ -3,6 +3,11 @@
 Use this optional path only when the Work sandbox cannot reach your
 `workers.dev` hostname but your local computer can.
 
+The sandbox must still be allowed to reach the deployed `chatgpt.site`
+hostname. This ingress cannot help when the execution policy blocks both
+hostnames. Test `/health` from the same process environment that will run the
+Agent before treating the Site as usable.
+
 ```text
 Mac SSH client ───────────────► Cloudflare Worker
 Work sandbox Agent ─► Site ───► Cloudflare Worker
@@ -25,7 +30,9 @@ Ask a Work Agent with the Sites capability to:
    Worker.
 4. Deploy the Site and verify `/health` reports
    `service: "workssh-site-ingress"` and `protocol: 1`.
-5. If the Site is workspace-protected, retrieve its bypass bearer and store it
+5. Verify that same `/health` URL from the target sandbox, not only from a
+   desktop browser.
+6. If the Site is workspace-protected, retrieve its bypass bearer and store it
    only in the sandbox Agent configuration.
 
 Do not commit the Site project ID, relay token, bypass bearer, account slug, or

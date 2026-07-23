@@ -55,7 +55,9 @@ curl https://YOUR_WORKER_URL/health
 
 如果 Work 沙盒访问这个 URL 超时，但你的本地电脑可以访问，请先部署
 [Site 入口](docs/SITE_INGRESS.md)。本地电脑仍直连 Worker，只有沙盒 Agent 使用
-Site URL。
+Site URL。部署前也必须从沙盒测试 Site `/health`；如果执行层同时禁止
+`workers.dev` 和 `chatgpt.site`，任何仓库内的 Relay 代码都无法绕过该出口白名单，
+需要平台放行其中一个域名或换到允许访问的环境。
 
 ### 2. 让 Work Agent 安装沙盒端
 

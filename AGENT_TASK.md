@@ -33,6 +33,9 @@ Complete the work without asking me to run sandbox-side commands:
      deploy `site-ingress/worker.js`, set `UPSTREAM_RELAY_URL` and the matching
      secret `RELAY_TOKEN`, retrieve the Site bypass bearer, and use that Site
      URL for the sandbox Agent with `WORKSSH_TRANSPORT=http-poll`.
+   Before installing, verify the Site `/health` endpoint from the sandbox. If
+   platform policy blocks both the Worker and Site hostnames, stop and report
+   the egress-policy blocker; do not claim the tunnel is connected.
    Store both runtime secrets only in configuration mode `0600`; never print
    the bearer, Site project ID, or hosted environment values.
 4. Bind the SSH server only to `127.0.0.1`, use public-key authentication only,
@@ -59,6 +62,8 @@ Do not:
 - commit runtime configuration or secrets;
 - use CPU busy loops as a keepalive;
 - claim that the VM or tunnel will remain online permanently.
+- claim a stale `status.json` value proves connectivity after the Agent process
+  has exited.
 
 At the end, provide:
 
