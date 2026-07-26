@@ -1,8 +1,14 @@
 {
   "$schema": "./node_modules/wrangler/config-schema.json",
-  "name": "workssh-relay",
+  "name": "ssh-relay",
   "main": "src/index.ts",
   "compatibility_date": "2026-07-22",
+  "exports": {
+    "TunnelRoom": {
+      "type": "durable-object",
+      "storage": "sqlite"
+    }
+  },
   "durable_objects": {
     "bindings": [
       {
@@ -10,11 +16,5 @@
         "class_name": "TunnelRoom"
       }
     ]
-  },
-  "migrations": [
-    {
-      "tag": "v1",
-      "new_sqlite_classes": ["TunnelRoom"]
-    }
-  ]
+  }
 }
